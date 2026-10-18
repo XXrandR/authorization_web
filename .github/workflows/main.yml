@@ -26,4 +26,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      - name: Wait and Check Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 10
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+      - name: Print Quality Gate & Coverage Results
+        if: always()  # Se ejecuta aunque falle el Quality Gate (para ver el reporte)
+        run: |
+          echo "=== SonarQube Project Status ==="
+          curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+            "$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=authorization_web" \
+            | jq -r '.projectStatus | "Status: " + .status, (.conditions[] | "- " + .metricKey + ": " + (.actualValue|tostring) + " (threshold " + (.errorThreshold|tostring) + ") -> " + .status)'
+          echo ""
+          echo "=== Key Metrics ==="
+          curl -s -H "Authorization: Bearer $SONAR_TOKEN" \
+            "$SONAR_HOST_URL/api/measures/component?component=authorization_web&metricKeys=coverage,lines,statements,branches,code_smells,bugs,vulnerabilities,reliability_rating,security_rating,sqale_rating" \
+            | jq -r '.component.measures[] | "- " + .metric + ": " + .value'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
