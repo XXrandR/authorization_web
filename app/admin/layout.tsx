@@ -1,119 +1,222 @@
-"use client";
-
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { request } from "@/lib/http";
+import { redirect } from "next/navigation";
+import {
+  Activity,
+  AppWindow,
+  ArrowLeft,
+  Fingerprint,
+  KeyRound,
+  MailPlus,
+  MonitorSmartphone,
+  ScrollText,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 
-type Session = { authenticated: boolean; username: string; roles: string[] };
-const navigation = [
-  "clients",
-  "identities",
-  "roles",
-  "invitations",
-  "authorizations",
-  "browser-sessions",
-  "audit-events",
-  "access-events",
+import {
+  getAdminSession,
+  type AdminSession,
+} from "@/lib/admin-session";
+
+import AdminLogoutButton from "@/components/admin-logout-button";
+import AdminNavigation from "@/components/admin/admin-navigation";
+
+const navigation: {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    label: "Clients",
+    href: "/admin/clients",
+    icon: AppWindow,
+  },
+  {
+    label: "Identities",
+    href: "/admin/identities",
+    icon: Fingerprint,
+  },
+  {
+    label: "Roles",
+    href: "/admin/roles",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Invitations",
+    href: "/admin/invitations",
+    icon: MailPlus,
+  },
+  {
+    label: "Authorizations",
+    href: "/admin/authorizations",
+    icon: KeyRound,
+  },
+  {
+    label: "Browser sessions",
+    href: "/admin/browser-sessions",
+    icon: MonitorSmartphone,
+  },
+  {
+    label: "Audit events",
+    href: "/admin/audit-events",
+    icon: ScrollText,
+  },
+  {
+    label: "Access events",
+    href: "/admin/access-events",
+    icon: Activity,
+  },
 ];
 
-export default function AdminLayout({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session>();
-  const [error, setError] = useState<string>();
-  const router = useRouter();
-  const path = usePathname();
-  useEffect(() => {
-    let active = true;
-    request<Session>("/api/v1/session")
-      .then((current) => {
-        if (!active) return;
-        if (!current.authenticated) {
-          router.replace(`/login?continue=${encodeURIComponent(path)}`);
-          return;
-        }
-        setSession(current);
-      })
-      .catch((reason) => {
-        if (active)
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "Unable to verify session.",
-          );
-      });
-    return () => {
-      active = false;
-    };
-  }, [path, router]);
-  if (error)
-    return (
-      <main role="alert" className="p-10 text-red-200">
-        {error}
-      </main>
-    );
-  if (!session)
-    return (
-      <main role="status" className="p-10 text-slate-300">
-        Checking your session…
-      </main>
-    );
-  if (!session.roles.includes("INFRASTRUCTURE_INTERNAL"))
-    return (
-      <main className="p-10 text-slate-100">
-        <h1 className="text-2xl">Access denied</h1>
-        <p className="my-4">
-          Your account is authenticated but is not an infrastructure operator.
+export default function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <Suspense fallback={<AdminLoading />}>
+      <AuthorizedAdminLayout>
+        {children}
+      </AuthorizedAdminLayout>
+    </Suspense>
+  );
+}
+
+function AdminLoading() {
+  return (
+    <main
+      role="status"
+      aria-live="polite"
+      className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground"
+    >
+      <div className="flex items-center gap-3">
+        <span className="size-5 animate-spin rounded-full border-2 border-border border-t-brand" />
+        <span className="text-sm text-content-secondary">
+          Verifying administrative access…
+        </span>
+      </div>
+    </main>
+  );
+}
+
+async function AuthorizedAdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const session = await getAdminSession();
+
+  if (!session) {
+    redirect("/login?continue=%2Fadmin");
+  }
+
+  if (!session.roles.includes("INFRASTRUCTURE_INTERNAL")) {
+    return <AccessDenied />;
+  }
+
+  return (
+    <AdminShell session={session}>
+      {children}
+    </AdminShell>
+  );
+}
+
+function AccessDenied() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-12 text-foreground">
+      <section className="w-full max-w-md rounded-panel border border-border bg-surface-raised p-8 shadow-card sm:p-10">
+        <div className="flex size-12 items-center justify-center rounded-xl border border-error/20 bg-error/5 text-error">
+          <ShieldCheck className="size-6" strokeWidth={1.7} />
+        </div>
+
+        <p className="mt-7 text-xs font-semibold uppercase tracking-[0.18em] text-content-muted">
+          Protector Identity
         </p>
-        <Link href="/" className="text-cyan-300">
+
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+          Access denied
+        </h1>
+
+        <p className="mt-3 text-sm leading-6 text-content-secondary">
+          Your account is authenticated, but it does not have the
+          permissions required to access the infrastructure console.
+        </p>
+
+        <Link
+          href="/"
+          className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <ArrowLeft className="size-4" />
           Return to account portal
         </Link>
-      </main>
-    );
+      </section>
+    </main>
+  );
+}
+
+function AdminShell({
+  session,
+  children,
+}: {
+  session: AdminSession;
+  children: ReactNode;
+}) {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 p-5">
-        <Link
-          href="/admin"
-          className="font-semibold tracking-widest text-cyan-300"
-        >
-          Protector / ADMIN
-        </Link>
-        <div className="flex items-center gap-4 text-sm">
-          <span>{session.username}</span>
-          <button
-            onClick={async () => {
-              try {
-                await request("/api/auth/logout", "POST");
-                router.replace("/login");
-              } catch (reason) {
-                setError(
-                  reason instanceof Error ? reason.message : "Logout failed",
-                );
-              }
-            }}
-            className="text-cyan-300"
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-16 max-w-screen-2xl items-center justify-between gap-4 px-5 sm:px-8">
+          <Link
+            href="/admin"
+            aria-label="Protector Identity administration home"
+            className="group inline-flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
-            Sign out
-          </button>
+            <span className="flex size-9 items-center justify-center rounded-xl bg-foreground text-background transition-transform duration-200 group-hover:scale-105">
+              <ShieldCheck
+                className="size-[19px]"
+                strokeWidth={1.7}
+              />
+            </span>
+
+            <span className="text-sm font-semibold tracking-tight">
+              Protector
+              <span className="text-brand"> Identity</span>
+            </span>
+
+            <span className="hidden h-5 w-px bg-border sm:block" />
+
+            <span className="hidden text-xs font-medium text-content-secondary sm:block">
+              Administration
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="hidden text-right sm:block">
+              <p className="max-w-48 truncate text-sm font-medium">
+                {session.username}
+              </p>
+              <p className="mt-0.5 text-[11px] text-content-muted">
+                Infrastructure operator
+              </p>
+            </div>
+
+            <span
+              aria-hidden="true"
+              className="hidden size-8 items-center justify-center rounded-full border border-border bg-surface-muted text-xs font-semibold text-content-secondary sm:flex"
+            >
+              {session.username.slice(0, 1).toUpperCase()}
+            </span>
+
+            <AdminLogoutButton />
+          </div>
         </div>
       </header>
-      <div className="mx-auto grid max-w-screen-2xl gap-6 p-5 lg:grid-cols-[210px_1fr]">
-        <nav
-          aria-label="Administration"
-          className="flex flex-wrap gap-2 lg:flex-col"
-        >
-          {navigation.map((item) => (
-            <Link
-              key={item}
-              href={`/admin/${item}`}
-              aria-current={path === `/admin/${item}` ? "page" : undefined}
-              className={`rounded-lg px-3 py-2 text-sm capitalize ${path === `/admin/${item}` ? "bg-cyan-400 text-slate-950" : "text-slate-300 hover:bg-slate-800"}`}
-            >
-              {item.replaceAll("-", " ")}
-            </Link>
-          ))}
-        </nav>
+
+      <div className="mx-auto grid max-w-screen-2xl gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10">
+        <aside className="min-w-0">
+            <AdminNavigation />
+        </aside>
+
         <main className="min-w-0">{children}</main>
       </div>
     </div>

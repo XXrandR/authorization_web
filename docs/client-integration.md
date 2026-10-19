@@ -76,3 +76,31 @@ Register each app separately with exact redirect/logout URIs, minimal scopes,
 clients have no secret. Backend-only clients use `client_credentials` and keep
 their secret in a secret manager. Registration is an administrator operation;
 do not build public dynamic client registration.
+
+
+# Flow of login
+
+Browser
+   |
+   | GET /admin/identities
+   | Cookie: JSESSIONID=...
+   v
+Next.js Server
+   |
+   | Read incoming session cookies
+   | GET {AUTHORIZATION_API_URL}/api/v1/session
+   | Forward Cookie header
+   v
+Spring Authorization API
+   |
+   | Validate session
+   | Resolve username and roles
+   v
+Next.js Server
+   |
+   +-- Unauthenticated ------> Redirect to /login
+   |
+   +-- Authenticated, wrong role
+   |                          Render Access Denied
+   |
+   +-- Authorized -----------> Render admin layout and page

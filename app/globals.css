@@ -1,20 +1,198 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-:root {
-  --background: #020617;
-  --foreground: #e2e8f0;
+/* =========================================
+   THEME CONFIGURATION
+   Protector Identity
+   ========================================= */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Brand */
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  /* Semantic surfaces */
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: #fafafa;
+
+  /* Text */
+  --color-content: #000000;
+  --color-content-secondary: #525252;
+  --color-content-muted: #737373;
+
+  /* Borders */
+  --color-border: #e5e5e5;
+  --color-border-strong: #d4d4d4;
+
+  /* Feedback */
+  --color-success: #059669;
+  --color-error: #dc2626;
+  --color-warning: #d97706;
+  --color-info: #0284c7;
+
+  /* Radius */
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+
+  /* Shadows */
+  --shadow-card: 0 8px 40px -20px rgb(0 0 0 / 15%);
+  --shadow-brand: 0 4px 14px -4px rgb(124 58 237 / 30%);
+
+  /* Typography */
+  --font-sans: Arial, Helvetica, sans-serif;
 }
+
+/* =========================================
+   LIGHT THEME
+   ========================================= */
+
+:root {
+  color-scheme: light;
+
+  --background: #ffffff;
+  --foreground: #000000;
+
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #fafafa;
+
+  --content: #000000;
+  --content-secondary: #525252;
+  --content-muted: #737373;
+
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+
+  --brand: #7c3aed;
+  --brand-hover: #6d28d9;
+  --brand-foreground: #ffffff;
+
+  --success: #059669;
+  --error: #dc2626;
+  --warning: #d97706;
+  --info: #0284c7;
+
+  /* Primary actions: dark background, white text */
+  --action-primary: #171717;
+  --action-primary-hover: #262626;
+  --action-primary-foreground: #ffffff;
+
+  /* Blue accent */
+  --action-accent: #2563eb;
+  --action-accent-hover: #1d4ed8;
+  --action-accent-foreground: #ffffff;
+
+  /* Success */
+  --action-success: #047857;
+  --action-success-hover: #065f46;
+  --action-success-foreground: #ffffff;
+}
+
+/* =========================================
+   DARK THEME
+   ========================================= */
+
+.dark {
+  color-scheme: dark;
+
+  --background: #000000;
+  --foreground: #ffffff;
+
+  --surface: #000000;
+  --surface-raised: #0a0a0a;
+  --surface-muted: #171717;
+
+  --content: #ffffff;
+  --content-secondary: #a3a3a3;
+  --content-muted: #737373;
+
+  --border: #262626;
+  --border-strong: #404040;
+
+  --brand: #a78bfa;
+  --brand-hover: #c4b5fd;
+  --brand-foreground: #000000;
+
+  --success: #34d399;
+  --error: #f87171;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+
+  /* Primary actions: white background, black text */
+  --action-primary: #ffffff;
+  --action-primary-hover: #e5e5e5;
+  --action-primary-foreground: #000000;
+
+  /* Blue accent */
+  --action-accent: #60a5fa;
+  --action-accent-hover: #93c5fd;
+  --action-accent-foreground: #000000;
+
+  /* Success */
+  --action-success: #34d399;
+  --action-success-hover: #6ee7b7;
+  --action-success-foreground: #000000;
+}
+
+/* =========================================
+   BASE STYLES
+   ========================================= */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    min-height: 100%;
+    background: var(--background);
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: var(--brand);
+    color: var(--brand-foreground);
+  }
+}
+
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-action-primary: var(--action-primary);
+  --color-action-primary-hover: var(--action-primary-hover);
+  --color-action-primary-foreground: var(--action-primary-foreground);
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  --color-action-accent: var(--action-accent);
+  --color-action-accent-hover: var(--action-accent-hover);
+  --color-action-accent-foreground: var(--action-accent-foreground);
+
+  --color-action-success: var(--action-success);
+  --color-action-success-hover: var(--action-success-hover);
+  --color-action-success-foreground: var(--action-success-foreground);
 }
