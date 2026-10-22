@@ -45,7 +45,7 @@ jobs:
         if: always()
         run: |
           echo "=== SonarCloud Project Status ==="
-          PROJECT_KEY="${{ github.event.inputs.organization }}:${{ github.event.inputs.project_key }}"
+          PROJECT_KEY="authorization_web" # <--- Usa la clave exacta del proyecto
           curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
             "https://sonarcloud.io/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" \
             | jq -r '.projectStatus | "Status: " + .status, (.conditions[]? | "- " + .metricKey + ": " + .actualValue|tostring) + " (threshold " + (.errorThreshold|tostring) + ") -> " + .status'
