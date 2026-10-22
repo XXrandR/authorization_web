@@ -31,9 +31,10 @@ jobs:
         run: npm ci
 
       - name: SonarQube Scan
-        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@v1.0.0
+        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@main
         with:
-          app-name: ${{ github.event.inputs.project_key }}
+          app-name: authorization-web
+          project-key: authorization_web
           organization: ${{ github.event.inputs.organization }}
           tek: nextjs
           build-timestamp: ${{ steps.timestamp.outputs.ts }}
