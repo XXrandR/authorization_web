@@ -31,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: SonarQube Scan
-        uses: DevSecOps-Engineer-Org/reusable-workflows/qa-sonar@v1.0.0
+        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@v1.0.0
         with:
           app-name: ${{ github.event.inputs.project_key }}
           organization: ${{ github.event.inputs.organization }}
