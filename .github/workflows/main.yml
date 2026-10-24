@@ -30,11 +30,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "ts=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
+
       - name: SonarQube Scan
         uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@main
         with:
           app-name: authorization-web
-          project-key: authorization_web
+          project-key: ${{ github.event.inputs.project_key }}
           organization: ${{ github.event.inputs.organization }}
           tek: nextjs
           build-timestamp: ${{ steps.timestamp.outputs.ts }}
@@ -45,7 +49,7 @@ jobs:
         if: always()
         run: |
           echo "=== SonarCloud Project Status ==="
-          PROJECT_KEY="authorization_web" # <--- Usa la clave exacta del proyecto
+          PROJECT_KEY="${{ github.event.inputs.project_key }}"
           curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
             "https://sonarcloud.io/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" \
             | jq -r '.projectStatus | "Status: " + .status, (.conditions[]? | "- " + .metricKey + ": " + .actualValue|tostring) + " (threshold " + (.errorThreshold|tostring) + ") -> " + .status'
