@@ -1,20 +1,45 @@
-name: SonarCloud Analysis
+name: CI
 
 on:
   workflow_dispatch:
     inputs:
       project_key:
-        description: 'Project Key'
+        description: "Project Key"
         required: true
-        default: 'XXrandR_authorization_web'
+        default: "XXrandR_authorization_web"
       organization:
-        description: 'Organization Key'
+        description: "Organization Key"
         required: true
-        default: 'xxrandr'
+        default: "xxrandr"
+
+permissions:
+  contents: read
 
 jobs:
+  prepare:
+    name: Prepare (Build, Lint & Artifacts)
+    runs-on: ubuntu-latest
+    outputs:
+      ts: ${{ steps.timestamp.outputs.ts }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "ts=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
+
   gitleaks:
-    name: Secrets Scan (historial completo)
+    name: Secrets Scan (Gitleaks)
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -23,50 +48,69 @@ jobs:
           fetch-depth: 0
 
       - name: Gitleaks
-        # Requiere que el tag contenga actions/qa-gitleaks (merge del PR + tag)
-        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-gitleaks@v1.0.0
+        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-gitleaks@0cf27106d2ac24cb8b031e942e3a3bab3a5c10f6 # v1.0.2
         with:
           fail-on-error: "true"
 
+  trivy:
+    name: Dependency & Security Scan (Trivy)
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Trivy FS Scan
+        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-trivy@0cf27106d2ac24cb8b031e942e3a3bab3a5c10f6 # v1.0.2
+        with:
+          scan-type: fs
+          severity: CRITICAL,HIGH
+          ignore-unfixed: "true"
+          fail-on-error: "true"
+
   sonarcloud:
-    name: Build and Analyze
+    name: Code Quality & SAST (SonarCloud)
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate build timestamp
-        id: timestamp
-        run: echo "ts=$(date +'%Y%m%d%H%M%S')" >> "$GITHUB_OUTPUT"
-
       - name: SonarQube Scan
-        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@v1.0.0
+        uses: DevSecOps-Engineer-Org/reusable-workflows/actions/qa-sonar@0cf27106d2ac24cb8b031e942e3a3bab3a5c10f6 # v1.0.2
         with:
           app-name: authorization-web
           project-key: ${{ github.event.inputs.project_key }}
           organization: ${{ github.event.inputs.organization }}
           tek: nextjs
-          build-timestamp: ${{ steps.timestamp.outputs.ts }}
+          build-timestamp: ${{ needs.prepare.outputs.ts }}
           sonar-url: ${{ vars.SONAR_HOST_URL }}
           sonar-token: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Print Quality Gate & Coverage Results
-        if: always()
-        run: |
-          echo "=== SonarCloud Project Status ==="
-          PROJECT_KEY="${{ github.event.inputs.project_key }}"
-          curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
-            "https://sonarcloud.io/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" \
-            | jq -r '.projectStatus | "Status: " + .status, (.conditions[]? | "- " + .metricKey + ": " + .actualValue|tostring) + " (threshold " + (.errorThreshold|tostring) + ") -> " + .status'
+  cleanup:
+    name: Cleanup QA Artifacts
+    needs: [prepare, gitleaks, trivy, sonarcloud]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete temporary workflow artifacts
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_NAME="qa-artifacts-${RUN_ID}"
+          IDS=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}/artifacts" \
+            --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" || true)
+          if [ -z "$IDS" ]; then
+            echo "No hay artefactos temporales pendientes por limpiar."
+          else
+            for id in $IDS; do
+              gh api -X DELETE "repos/${REPO}/actions/artifacts/${id}"
+              echo "Artefacto temporal eliminado: ${ARTIFACT_NAME} (id=${id})"
+            done
+          fi
